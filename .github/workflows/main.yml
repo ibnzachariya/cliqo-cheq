@@ -1,4 +1,8 @@
-  name: Build APK
+name: Build APK
+
+# Builds a debug (installable) APK every time you push, and whenever you
+# trigger it by hand from the Actions tab. Download the result from the
+# run's "Artifacts" section — that .apk installs directly on a phone.
 
 on:
   push:
