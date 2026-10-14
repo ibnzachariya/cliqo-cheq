@@ -13,6 +13,18 @@
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
 
+    <!--
+      On Android 11+ (API 30+) apps can't see other installed apps by default, so
+      PackageManager couldn't resolve real names/icons and fell back to raw package
+      names like "com.android.chrome". QUERY_ALL_PACKAGES lifts that so we can show
+      the actual app name and icon for everything that was opened.
+      Note: this permission is restricted on the Google Play Store and needs a
+      declared justification there; it's fine for personal / sideloaded builds.
+    -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

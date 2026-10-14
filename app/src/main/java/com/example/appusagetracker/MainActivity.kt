@@ -7,14 +7,21 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -24,20 +31,25 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
 
@@ -58,8 +70,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Refresh every time the screen comes back to the foreground — this picks up
-        // the permission the user may have just granted in Settings, and reloads events.
         viewModel.refresh()
     }
 }
@@ -91,15 +101,15 @@ fun UsageScreen(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 onOpenSettings = onOpenSettings
             )
-            state.loading && state.events.isEmpty() -> LoadingState(
+            state.loading && state.rows.isEmpty() -> LoadingState(
                 modifier = Modifier.fillMaxSize().padding(padding)
             )
-            state.events.isEmpty() -> EmptyState(
+            state.rows.isEmpty() -> EmptyState(
                 modifier = Modifier.fillMaxSize().padding(padding)
             )
-            else -> EventList(
+            else -> UsageList(
                 modifier = Modifier.fillMaxSize().padding(padding),
-                events = state.events
+                rows = state.rows
             )
         }
     }
@@ -165,27 +175,102 @@ private fun EmptyState(modifier: Modifier) {
 }
 
 @Composable
-private fun EventList(modifier: Modifier, events: List<AppOpenEvent>) {
-    val formatter = remember { SimpleDateFormat("MMM d, h:mm:ss a", Locale.getDefault()) }
-    LazyColumn(modifier = modifier) {
-        items(events) { e ->
+private fun UsageList(modifier: Modifier, rows: List<AppUsageRow>) {
+    val formatter = remember { SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()) }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
+    Box(modifier = modifier) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(rows) { row ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (row.icon != null) {
+                        Image(
+                            bitmap = row.icon,
+                            contentDescription = "${row.appLabel} icon",
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.Android,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(44.dp)
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 14.dp)
+                    ) {
+                        Text(text = row.appLabel, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            text = "Last opened ${formatter.format(Date(row.lastOpened))}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = usageSubtitle(row.totalDurationMillis, row.openCount),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                HorizontalDivider()
+            }
+        }
+
+        // Jump-to-top / jump-to-bottom controls, shown only when the list can scroll.
+        if (rows.size > 8) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(text = e.appLabel, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    text = formatter.format(Date(e.timestamp)),
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Text(
-                    text = e.packageName,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                SmallFloatingActionButton(
+                    onClick = { scope.launch { listState.animateScrollToItem(0) } }
+                ) {
+                    Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Scroll to top")
+                }
+                SmallFloatingActionButton(
+                    onClick = {
+                        scope.launch { listState.animateScrollToItem((rows.size - 1).coerceAtLeast(0)) }
+                    }
+                ) {
+                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Scroll to bottom")
+                }
             }
-            HorizontalDivider()
         }
+    }
+}
+
+/** Builds the "used 3m 20s · opened 4 times" subtitle line. */
+private fun usageSubtitle(durationMillis: Long, openCount: Int): String {
+    val used = "Used ${formatDuration(durationMillis)}"
+    return if (openCount > 1) "$used · opened $openCount times" else used
+}
+
+/** Formats a duration like "<1s", "45s", "3m 20s", or "1h 4m". */
+private fun formatDuration(millis: Long): String {
+    if (millis < 1000) return "<1s"
+    val totalSeconds = millis / 1000
+    val hours = TimeUnit.SECONDS.toHours(totalSeconds)
+    val minutes = TimeUnit.SECONDS.toMinutes(totalSeconds) % 60
+    val seconds = totalSeconds % 60
+    return when {
+        hours > 0 -> "${hours}h ${minutes}m"
+        minutes > 0 -> "${minutes}m ${seconds}s"
+        else -> "${seconds}s"
     }
 }

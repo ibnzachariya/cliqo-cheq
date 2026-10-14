@@ -14,7 +14,7 @@ import kotlinx.coroutines.withContext
 data class UsageUiState(
     val hasPermission: Boolean = false,
     val loading: Boolean = false,
-    val events: List<AppOpenEvent> = emptyList()
+    val rows: List<AppUsageRow> = emptyList()
 )
 
 class UsageViewModel(app: Application) : AndroidViewModel(app) {
@@ -25,9 +25,8 @@ class UsageViewModel(app: Application) : AndroidViewModel(app) {
     val state: StateFlow<UsageUiState> = _state.asStateFlow()
 
     /**
-     * Re-checks permission and, if granted, reloads the event list.
-     * Call this from onResume so the screen refreshes after the user returns
-     * from the Settings "Usage access" screen.
+     * Re-checks permission and, if granted, reloads the usage rows.
+     * Called from onResume so the screen refreshes after returning from Settings.
      */
     fun refresh() {
         val granted = repo.hasUsageAccess()
@@ -36,8 +35,8 @@ class UsageViewModel(app: Application) : AndroidViewModel(app) {
 
         _state.value = _state.value.copy(loading = true)
         viewModelScope.launch {
-            val events = withContext(Dispatchers.IO) { repo.getAppOpenEvents() }
-            _state.value = _state.value.copy(loading = false, events = events)
+            val rows = withContext(Dispatchers.IO) { repo.getUsageRows() }
+            _state.value = _state.value.copy(loading = false, rows = rows)
         }
     }
 
