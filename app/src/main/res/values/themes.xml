@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- A minimal Material3 theme. Compose supplies its own theming at runtime
+         (see Theme.kt); this base theme just needs to exist for the manifest. -->
+    <style name="Theme.AppUsageTracker" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
