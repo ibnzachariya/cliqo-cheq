@@ -11,6 +11,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +39,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -244,10 +247,11 @@ fun PremiumScreen(prefs: LockPrefs, onUnlocked: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(Indigo, IndigoDark)))
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(16.dp))
         Box(
             modifier = Modifier
                 .size(84.dp)
@@ -312,11 +316,19 @@ fun PremiumScreen(prefs: LockPrefs, onUnlocked: () -> Unit) {
         }
 
         Spacer(Modifier.height(16.dp))
-        TextButton(onClick = { showCode = !showCode }) {
-            Text(if (showCode) "Hide code entry" else "Have an unlock code?", color = Color.White)
+        Button(
+            onClick = { showCode = !showCode },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.White.copy(alpha = 0.18f),
+                contentColor = Color.White
+            )
+        ) {
+            Text(if (showCode) "Hide code entry" else "Have an unlock code?  (admin)")
         }
 
         if (showCode) {
+            Spacer(Modifier.height(12.dp))
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 shape = RoundedCornerShape(18.dp),
