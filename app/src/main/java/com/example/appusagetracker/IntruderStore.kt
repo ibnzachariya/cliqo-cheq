@@ -67,6 +67,22 @@ class IntruderStore(context: Context) {
         prefs.edit().remove(KEY).apply()
     }
 
+    /** Deletes a single record (and its photo) by its timestamp. */
+    fun delete(timestamp: Long) {
+        val arr = readArray()
+        val out = JSONArray()
+        for (i in 0 until arr.length()) {
+            val o = arr.getJSONObject(i)
+            if (o.optLong("time") == timestamp) {
+                val photo = if (o.isNull("photo")) null else o.optString("photo", null)
+                if (!photo.isNullOrEmpty()) File(photo).delete()
+            } else {
+                out.put(o)
+            }
+        }
+        prefs.edit().putString(KEY, out.toString()).apply()
+    }
+
     private fun readArray(): JSONArray =
         try {
             JSONArray(prefs.getString(KEY, "[]"))

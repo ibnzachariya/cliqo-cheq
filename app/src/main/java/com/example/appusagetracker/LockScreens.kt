@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backspace
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.AlertDialog
@@ -40,6 +41,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
@@ -50,6 +52,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,6 +66,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -194,20 +198,43 @@ fun PinSetupDialog(onDone: (String) -> Unit, onDismiss: () -> Unit) {
 @Composable
 fun PremiumScreen(prefs: LockPrefs, onUnlocked: () -> Unit) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var showCode by remember { mutableStateOf(false) }
     var code by remember { mutableStateOf("") }
     var codeError by remember { mutableStateOf<String?>(null) }
+    var verifying by remember { mutableStateOf(false) }
 
     val payLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            prefs.premiumUnlocked = true
             // Remember the payment email so intruder alerts go to this buyer.
             if (email.contains("@")) prefs.ownerEmail = email.trim()
-            onUnlocked()
+            val reference = result.data?.getStringExtra(PaymentActivity.EXTRA_REFERENCE).orEmpty()
+
+            if (!PremiumManager.isAlertConfigured()) {
+                // No verification server set up — trust the Paystack callback.
+                prefs.premiumUnlocked = true
+                onUnlocked()
+            } else {
+                // Confirm the payment is real before unlocking.
+                verifying = true
+                error = null
+                scope.launch {
+                    val ok = withContext(Dispatchers.IO) {
+                        PaymentVerifier.verify(PremiumManager.ALERT_SCRIPT_URL, PremiumManager.ALERT_SECRET, reference)
+                    }
+                    verifying = false
+                    if (ok) {
+                        prefs.premiumUnlocked = true
+                        onUnlocked()
+                    } else {
+                        error = "We couldn't confirm your payment yet. If you were charged, tap Pay again, or contact support."
+                    }
+                }
+            }
         } else {
             error = "Payment was not completed."
         }
@@ -264,6 +291,7 @@ fun PremiumScreen(prefs: LockPrefs, onUnlocked: () -> Unit) {
                 }
                 Spacer(Modifier.height(14.dp))
                 Button(
+                    enabled = !verifying,
                     onClick = {
                         when {
                             !email.contains("@") || !email.contains(".") ->
@@ -279,7 +307,7 @@ fun PremiumScreen(prefs: LockPrefs, onUnlocked: () -> Unit) {
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("Pay ₦1,000 with Paystack") }
+                ) { Text(if (verifying) "Verifying payment…" else "Pay ₦1,000 with Paystack") }
             }
         }
 
@@ -571,43 +599,108 @@ private fun SetupRow(done: Boolean, label: String, actionText: String, onAction:
 // ---------------------------------------------------------------------------
 
 @Composable
-fun IntruderLogScreen(store: IntruderStore) {
+fun IntruderLogScreen(store: IntruderStore, prefs: LockPrefs) {
+    // Require the PIN before showing captured photos (if a PIN has been set).
+    var unlocked by remember { mutableStateOf(!prefs.hasPin()) }
+    var entered by remember { mutableStateOf("") }
+    var pinError by remember { mutableStateOf(false) }
     var records by remember { mutableStateOf<List<IntruderRecord>>(emptyList()) }
+    var showClearAll by remember { mutableStateOf(false) }
     val formatter = remember { SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()) }
 
-    LaunchedEffect(Unit) { records = store.all() }
+    fun reload() { records = store.all() }
+    LaunchedEffect(unlocked) { if (unlocked) reload() }
 
-    if (records.isEmpty()) {
-        Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-            Text("No intruders yet. Failed PIN attempts will show up here with a photo.", textAlign = TextAlign.Center, color = Color.Gray)
+    if (!unlocked) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(Icons.Filled.Lock, contentDescription = null, tint = Indigo, modifier = Modifier.size(40.dp))
+            Spacer(Modifier.height(12.dp))
+            Text(if (pinError) "Wrong PIN, try again" else "Enter PIN to view intruders",
+                color = if (pinError) MaterialTheme.colorScheme.error else Color.Gray)
+            Spacer(Modifier.height(20.dp))
+            PinDots(filled = entered.length, total = 4, color = Indigo)
+            Spacer(Modifier.height(20.dp))
+            PinPad(
+                keyColor = Indigo,
+                onDigit = { d ->
+                    if (entered.length < 4) {
+                        pinError = false
+                        entered += d
+                        if (entered.length == 4) {
+                            if (prefs.checkPin(entered)) { unlocked = true } else { pinError = true }
+                            entered = ""
+                        }
+                    }
+                },
+                onBackspace = { if (entered.isNotEmpty()) entered = entered.dropLast(1) }
+            )
         }
         return
     }
 
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        items(records) { r ->
-            val photo: ImageBitmap? = remember(r.photoPath) { IntruderStore.loadPhoto(r.photoPath) }
-            Card(shape = RoundedCornerShape(16.dp)) {
-                Column {
-                    Box(
-                        Modifier.fillMaxWidth().height(160.dp).background(Color(0xFFEDEDED)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (photo != null) {
-                            Image(photo, contentDescription = null, modifier = Modifier.fillMaxSize())
-                        } else {
-                            Text("No photo", color = Color.Gray, fontSize = 12.sp)
+    if (showClearAll) {
+        AlertDialog(
+            onDismissRequest = { showClearAll = false },
+            confirmButton = {
+                TextButton(onClick = { store.clearAll(); reload(); showClearAll = false }) { Text("Delete all") }
+            },
+            dismissButton = { TextButton(onClick = { showClearAll = false }) { Text("Cancel") } },
+            title = { Text("Delete all intruders?") },
+            text = { Text("This permanently removes every saved photo and record.") }
+        )
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        if (records.isNotEmpty()) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("${records.size} captured", Modifier.weight(1f), color = Color.Gray, fontSize = 13.sp)
+                TextButton(onClick = { showClearAll = true }) { Text("Delete all") }
+            }
+        }
+
+        if (records.isEmpty()) {
+            Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+                Text("No intruders yet. Failed PIN attempts will show up here with a photo.", textAlign = TextAlign.Center, color = Color.Gray)
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(records) { r ->
+                    val photo: ImageBitmap? = remember(r.photoPath) { IntruderStore.loadPhoto(r.photoPath) }
+                    Card(shape = RoundedCornerShape(16.dp)) {
+                        Column {
+                            Box(
+                                Modifier.fillMaxWidth().height(160.dp).background(Color(0xFFEDEDED)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (photo != null) {
+                                    Image(photo, contentDescription = null, modifier = Modifier.fillMaxSize())
+                                } else {
+                                    Text("No photo", color = Color.Gray, fontSize = 12.sp)
+                                }
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f).padding(start = 10.dp, top = 8.dp, bottom = 8.dp)) {
+                                    Text(r.appLabel, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                    Text(formatter.format(Date(r.timestamp)), color = Color.Gray, fontSize = 12.sp)
+                                }
+                                IconButton(onClick = { store.delete(r.timestamp); reload() }) {
+                                    Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = Color.Gray)
+                                }
+                            }
                         }
-                    }
-                    Column(Modifier.padding(10.dp)) {
-                        Text(r.appLabel, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                        Text(formatter.format(Date(r.timestamp)), color = Color.Gray, fontSize = 12.sp)
                     }
                 }
             }

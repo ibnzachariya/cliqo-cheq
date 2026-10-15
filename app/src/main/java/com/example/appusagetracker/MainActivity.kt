@@ -140,7 +140,7 @@ fun RootScreen(vm: UsageViewModel, onOpenSettings: () -> Unit) {
                 } else {
                     PremiumScreen(prefs = prefs, onUnlocked = { premium = true })
                 }
-                2 -> IntruderLogScreen(store = intruderStore)
+                2 -> IntruderLogScreen(store = intruderStore, prefs = prefs)
             }
         }
     }
