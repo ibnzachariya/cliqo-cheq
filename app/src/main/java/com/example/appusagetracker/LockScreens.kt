@@ -205,6 +205,8 @@ fun PremiumScreen(prefs: LockPrefs, onUnlocked: () -> Unit) {
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             prefs.premiumUnlocked = true
+            // Remember the payment email so intruder alerts go to this buyer.
+            if (email.contains("@")) prefs.ownerEmail = email.trim()
             onUnlocked()
         } else {
             error = "Payment was not completed."
@@ -335,6 +337,8 @@ fun AppLockScreen(context: Context, prefs: LockPrefs) {
     var protectionOn by remember { mutableStateOf(prefs.protectionEnabled) }
     var showPinDialog by remember { mutableStateOf(false) }
     var lockedSet by remember { mutableStateOf(prefs.lockedPackages()) }
+    var alertEmail by remember { mutableStateOf(prefs.ownerEmail) }
+    var showEmailDialog by remember { mutableStateOf(false) }
 
     var apps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
     var loadingApps by remember { mutableStateOf(true) }
@@ -365,6 +369,35 @@ fun AppLockScreen(context: Context, prefs: LockPrefs) {
         PinSetupDialog(
             onDone = { pin -> prefs.setPin(pin); showPinDialog = false; refresh++ },
             onDismiss = { showPinDialog = false }
+        )
+    }
+
+    if (showEmailDialog) {
+        var draft by remember { mutableStateOf(alertEmail) }
+        AlertDialog(
+            onDismissRequest = { showEmailDialog = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    prefs.ownerEmail = draft.trim()
+                    alertEmail = draft.trim()
+                    showEmailDialog = false
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { showEmailDialog = false }) { Text("Cancel") } },
+            title = { Text("Alert email") },
+            text = {
+                Column {
+                    Text("Intruder alerts (photo + details) are emailed here.")
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = draft,
+                        onValueChange = { draft = it },
+                        label = { Text("Email address") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         )
     }
 
@@ -445,6 +478,26 @@ fun AppLockScreen(context: Context, prefs: LockPrefs) {
                             }
                         }
                     )
+                }
+            }
+        }
+
+        // Intruder alert email
+        item {
+            Spacer(Modifier.height(12.dp))
+            Card(shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Intruder alerts", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text(
+                            if (alertEmail.isBlank()) "No email set — alerts won't be sent"
+                            else "Emailed to: $alertEmail",
+                            color = Color.Gray, fontSize = 13.sp
+                        )
+                    }
+                    TextButton(onClick = { showEmailDialog = true }) {
+                        Text(if (alertEmail.isBlank()) "Set" else "Change")
+                    }
                 }
             }
         }

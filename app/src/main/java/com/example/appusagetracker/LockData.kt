@@ -54,6 +54,11 @@ class LockPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_PREMIUM, false)
         set(value) = prefs.edit().putBoolean(KEY_PREMIUM, value).apply()
 
+    // ---- Alert email (where intruder alerts are sent; defaults to the payment email) ----
+    var ownerEmail: String
+        get() = prefs.getString(KEY_EMAIL, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_EMAIL, value).apply()
+
     private fun hash(pin: String, salt: String): String {
         val md = MessageDigest.getInstance("SHA-256")
         val bytes = md.digest("$salt::$pin".toByteArray())
@@ -71,6 +76,7 @@ class LockPrefs(context: Context) {
         private const val KEY_LOCKED = "locked_pkgs"
         private const val KEY_PROTECT = "protection_on"
         private const val KEY_PREMIUM = "premium_on"
+        private const val KEY_EMAIL = "owner_email"
     }
 }
 
@@ -104,6 +110,15 @@ object PremiumManager {
 
     fun isPaystackConfigured(): Boolean =
         PAYSTACK_PUBLIC_KEY.startsWith("pk_") && !PAYSTACK_PUBLIC_KEY.contains("REPLACE")
+
+    // ---- Intruder email alerts (free Google Apps Script sender) ----
+    // Paste the Web-app URL of your deployed Apps Script here (it looks like
+    // https://script.google.com/macros/s/XXXX/exec). Leave blank to disable email alerts.
+    const val ALERT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxHB0GkqXRpZZtaKBHnDqtFeELmaDJT4bKhF_SJeIi5aM2wJYEvgUyHY4pYNM-dhRTlCw/exec"
+    // Must EXACTLY match the SECRET in the Apps Script. Change both to your own value.
+    const val ALERT_SECRET = "mycliqomyapp"
+
+    fun isAlertConfigured(): Boolean = ALERT_SCRIPT_URL.startsWith("https://")
 
     // ---- Free unlock codes (admin) ----
     // CHANGE THESE two values to your own secrets. If you change SALT, regenerate codes

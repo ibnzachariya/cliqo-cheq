@@ -33,8 +33,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Full-screen PIN prompt shown over a locked app. Correct PIN lets the app through;
@@ -103,6 +108,22 @@ class LockActivity : ComponentActivity() {
                 false
             }
             intruderStore.add(pkg, label, now, if (ok) file.absolutePath else null)
+
+            // Email the alert to the owner, if configured. Runs on IO; failures are ignored.
+            val toEmail = prefs.ownerEmail
+            if (PremiumManager.isAlertConfigured() && toEmail.isNotBlank()) {
+                val timeText = SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault()).format(Date(now))
+                withContext(Dispatchers.IO) {
+                    IntruderAlert.send(
+                        scriptUrl = PremiumManager.ALERT_SCRIPT_URL,
+                        secret = PremiumManager.ALERT_SECRET,
+                        toEmail = toEmail,
+                        appName = label,
+                        timeText = timeText,
+                        photoFile = if (ok) file else null
+                    )
+                }
+            }
         }
     }
 

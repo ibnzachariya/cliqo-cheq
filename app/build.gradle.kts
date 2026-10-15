@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.appusagetracker"
         minSdk = 23          // UsageStatsManager is available from API 21; queryEvents usage here is safe from 23+
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 5
+        versionName = "1.4"
     }
 
     buildTypes {
