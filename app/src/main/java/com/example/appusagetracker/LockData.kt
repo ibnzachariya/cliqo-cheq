@@ -99,7 +99,7 @@ object PremiumManager {
     // out — you can pay with Paystack's test cards and no real money moves. Switch to your
     // LIVE key (pk_live_...) when you're ready to take real payments.
     // NOTE: only the PUBLIC key goes in the app. NEVER put your secret key (sk_...) here.
-    const val PAYSTACK_PUBLIC_KEY = "pk_test_f1cb51af6f2360691a789ef88996fbd6a73bc24d"
+    const val PAYSTACK_PUBLIC_KEY = "pk_live_c7c5cea1e623acb95fea1cc6fbb28c5a13782f52"
 
     // ₦1,000 expressed in kobo (Paystack charges in kobo: 1,000 × 100).
     const val PRICE_KOBO = 100_000L
