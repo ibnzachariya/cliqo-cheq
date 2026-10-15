@@ -16,6 +16,20 @@ android {
         versionName = "1.4"
     }
 
+    // Signing for release builds. Values come from environment variables so the keystore
+    // and passwords never live in the repo — GitHub Actions supplies them from Secrets.
+    signingConfigs {
+        create("release") {
+            val kf = System.getenv("KEYSTORE_FILE")
+            if (!kf.isNullOrBlank() && file(kf).exists()) {
+                storeFile = file(kf)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -23,6 +37,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Sign the release only when the keystore env vars are present.
+            if (!System.getenv("KEYSTORE_FILE").isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
