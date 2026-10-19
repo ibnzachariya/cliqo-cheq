@@ -265,7 +265,7 @@ fun PremiumScreen(prefs: LockPrefs, onUnlocked: () -> Unit) {
         Text("App Lock & Intruder Selfie", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
         Spacer(Modifier.height(10.dp))
         Text(
-            "Lock any app with a PIN. If someone enters the wrong PIN, Cliqo Cheq quietly takes their photo and logs it.",
+            "Lock any app with a PIN. If someone enters the wrong PIN, CliqoCheck quietly takes their photo and logs it.",
             color = Color(0xFFD6DBFF),
             textAlign = TextAlign.Center
         )

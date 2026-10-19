@@ -99,7 +99,7 @@ fun RootScreen(vm: UsageViewModel, onOpenSettings: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Cliqo Cheq") },
+                title = { Text("CliqoCheck") },
                 actions = {
                     if (tab == 0 && state.hasPermission) {
                         IconButton(onClick = { vm.refresh() }) {
@@ -171,7 +171,7 @@ private fun PermissionPrompt(modifier: Modifier, onOpenSettings: () -> Unit) {
     ) {
         Image(
             painter = painterResource(id = R.drawable.logo),
-            contentDescription = "Cliqo Cheq logo",
+            contentDescription = "CliqoCheck logo",
             modifier = Modifier.size(96.dp).padding(bottom = 16.dp)
         )
         Text("Usage access needed", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)

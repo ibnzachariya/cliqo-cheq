@@ -108,7 +108,7 @@ class LockMonitorService : Service() {
             mgr.createNotificationChannel(channel)
         }
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Cliqo Cheq is protecting your apps")
+            .setContentTitle("CliqoCheck is protecting your apps")
             .setContentText("Locked apps will ask for your PIN.")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setOngoing(true)
